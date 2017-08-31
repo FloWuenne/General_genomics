@@ -1,2 +1,2 @@
-# General_genomics
-Collection of scripts and tools for genomic and transcriptomic data analysis.
+# General genomics
+Collection of short scripts and tools by @FloWuenne for genomic and transcriptomic data analysis.
