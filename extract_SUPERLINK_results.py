@@ -1,17 +1,14 @@
 #!/usr/bin/python
-## Superlink can be found under the following link and can be used to perform linkage analysis:
-## http://cbl-hap.cs.technion.ac.il/superlink-snp/
-## This script will perform the following analysis on the SUPERLINK output
-## Extract results from SUPERLINK html output into a easily parsable tsv file to replot LOD score distribution in R
+## Extract results from SUPERLINK html output to replot LOD scores in R
 
 from xml.etree.ElementTree import fromstring
 import os
 from bs4 import BeautifulSoup
 
 ## Specify the directory containing the Results folders
-Results_dir="./Results"
+Results_dir="/media/florian/CCE45F70E45F5C30/Florian_Projects/NEW_Genotyping_Analysis_2015/Family1524/NOTCH1_subpedigree_analysis/MultiPointAnalysis_1/Results"
 chrom_folders = os.listdir(Results_dir)
-html_file_name="res_output.html"
+html_file_name="formatted_output.html"
 
 ## Perform result extraction for each chromosome
 chrom_results = {}
@@ -19,35 +16,43 @@ chrom_results = {}
 for chrom in chrom_folders:
     infile_name=Results_dir+"/"+chrom+"/"+html_file_name
     with open(infile_name,"rb") as infile:
-        soup = BeautifulSoup(infile,"lxml")
-        html_table = soup.find_all('table')
-        chrom_results[chrom] = html_table[0]
+        table_switch = 0
+        table_string = ""
+        for line in infile:
+            if table_switch == 0:
+                if line.startswith("<table"):
+                    table_switch = 1
+                    table_string += "<table class=\"details\" border=\"0\" cellpadding=\"5\" cellspacing=\"2\" width=\"95%\">"
+                    table_string += line
+            elif table_switch == 1:
+                if line.startswith("</table>"):
+                    table_string += "</table>"
+                    table_switch = 2
+                else:
+                    table_string += line
+        chrom_results[chrom] = table_string
                     
-outfile = open("./All_chromosomes_SUPERLINK.tab","wb")
-outfile.write("chrom\trow_ID\tMarker_name\tDistance\tLOD\n")
+outfile = open("/media/florian/CCE45F70E45F5C30/Florian_Projects/NEW_Genotyping_Analysis_2015/Family1524/NOTCH1_subpedigree_analysis/All_chromosomes_SUPERLINK.tab","wb")
+outfile.write("chrom\trow_ID\tvariable\tvalue\n")
 
 for chrom in chrom_results:
-    all_chrom_results = []
-    counter = 0
-    table = chrom_results[chrom]
-    # The first td contains the field names.
-    headings=["Group id","Marker id","Marker name","Distance","LN","LOD","Complexity"]
-    headings2=["Marker id","Marker name","Distance","LN","LOD","Complexity"]
-    for row in table.find_all("tr")[2:]:
-        if counter % 3 == 0 or counter == 0:
-            dataset = zip(headings, (td.get_text() for td in row.find_all("td")))
-            all_chrom_results.append(dataset)
-        else:
-            dataset2 = zip(headings2, (td.get_text() for td in row.find_all("td")))
-            all_chrom_results.append(dataset2)
-        counter += 1
+    html_string = chrom_results[chrom]
+    soup = BeautifulSoup(html_string,"lxml")
+    table = soup.find("table", attrs={"class":"details"})
     
-    counter = 0
-    chromosome = "Chr"+chrom.split("_")[1]
+    # The first tr contains the field names.
+    all_chrom_results = []
+    for row in table.find_all("tr")[1:]:
+        headings=["ID","name","distance","LOD","NPLSPAIR","NPLALL"]
+        dataset = zip(headings, (td.get_text() for td in row.find_all("td")))
+        all_chrom_results.append(dataset)
+        
     for result_row in all_chrom_results:
-        if counter % 3 == 0 or counter == 0:
-            outfile.write(chromosome+"\t{0}\t{1}\t{2}\t{3}\n".format(result_row[1][1],result_row[2][1],result_row[3][1],result_row[5][1]))
-        else:
-            outfile.write(chromosome+"\t{0}\t{1}\t{2}\t{3}\n".format(result_row[0][1],result_row[1][1],result_row[2][1],result_row[4][1]))  
-        counter += 1
+        for field in result_row:
+            if field[0] == "ID":
+                row_id = field[1]
+            outfile.write(chrom+"\t"+row_id+"\t{0}\t{1}\n".format(field[0], field[1]))
+           #print chrom+"\t{0}\t{1}".format(field[0], field[1])
+
+           
 outfile.close()
